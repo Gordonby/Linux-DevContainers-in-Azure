@@ -15,9 +15,10 @@ The below steps will deployment an Azure environment using a Virtual Network for
 
 A number of different infrastructure scenarios are supported, which enable this repository to support both simple and more secure configurations.
 
-Scenario | Description | Status
--------- | ----------- | ------
+Scenario | Description | Status | Estimated monthly cost
+-------- | ----------- | ------ | ----------------------
 Public | A simple "over the internet" scenario which is great for rapid development by a single developer | In QA (wip)
+Public with Bastion | A managed Bastion service governs the traffic to the Virtual Machine | Not started
 P2S VPN | Designed for a single developer to use. Leveraging a P2S VPN and DNS resolution via Azure DNS Resolver | Needs refactoring
 Landing Zone | A scaled developer environment that can be joined to the Hub Virtual Network from an Azure Landing Zone implementation | Not started
 
@@ -40,11 +41,16 @@ az keyvault secret show --vault-name $kvName -n vmSshPrivate --query value -o ts
 #### With PowerShell
 
 ```powershell
-$rg=YourResourceGroup
-$deployingUser=az ad signed-in-user show --query id --out tsv
+$rg="YourResourceGroup"
+az group create -g $RG -l uksouth
+$deployingUserId=az ad signed-in-user show --query id --out tsv
+$deployingUserName=az ad signed-in-user show --query givenName --out tsv
 $clientPublicIp=(Invoke-WebRequest -uri "https://api.ipify.org/").Content
 
-az deployment group create -n devcontdemo -g $RG -f .\deploy\main.bicep -p resourceName=devcontdemo deployingUserPrincipalId=$deployingUser exposureModel=publicIpOnVm clientOutboundIpAddress=clientPublicIp
+az deployment group create -n devcontdemo -g $RG -f .\deploy\main.bicep -p resourceName=devcontdemo deployingUserPrincipalId=$deployingUserId deployingUserName=$deployingUserName exposureModel=PublicIpOnVm clientOutboundIpAddress=$clientPublicIp
+az deployment group show -g $RG -n devcontdemo
+$vmName=az deployment group show -g $RG -n devcontdemo --query properties.outputs.vmName.value -o tsv
+$vmDns=az deployment group show -g $RG -n devcontdemo --query properties.outputs.publicIpDnsFqdn.value -o tsv
 $kvName=az deployment group show -n devcontdemo -g $RG --query properties.outputs.keyVaultName.value -o tsv
 $sshKey=az keyvault secret show --vault-name $kvName -n vmSshPrivate --query value -o tsv
 ```
@@ -56,10 +62,10 @@ $sshKey=az keyvault secret show --vault-name $kvName -n vmSshPrivate --query val
 ```powershell
 cd $env:userprofile
 mkdir .ssh -ErrorAction SilentlyContinue
-$sshKey | out-file "devmac1.pub" 
+$sshKey | out-file ".ssh\$vmName.pub" 
 start-service ssh-agent
-ssh-add "$env:userprofile\.ssh\devmac1.pub"
-Test-NetConnection <VM DNS Address> -Port 22
+ssh-add "$env:userprofile\.ssh\$vmName.pub"
+Test-NetConnection $vmDns -Port 22
 ```
 
 ## Private Scenario : Point to Site

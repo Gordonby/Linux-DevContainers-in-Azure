@@ -6,7 +6,6 @@ param workspaceRegion string = resourceGroup().location
 param internetSourceIpAddress string = ''
 
 var nsgName = 'nsg-${resourceName}'
-var internetSourceAddressPrefixes = !empty(internetSourceIpAddress) ? [internetSourceIpAddress] : []
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2022-09-01' = {
   name: nsgName
@@ -88,7 +87,7 @@ resource ruleInternetHttp 'Microsoft.Network/networkSecurityGroups/securityRules
     destinationPortRanges: [
       '80'
     ]
-    sourceAddressPrefixes: internetSourceAddressPrefixes
+    sourceAddressPrefixes: []
     destinationAddressPrefixes: []
   }
 }
@@ -109,7 +108,7 @@ resource ruleInternetHttps 'Microsoft.Network/networkSecurityGroups/securityRule
     destinationPortRanges: [
       '443'
     ]
-    sourceAddressPrefixes: internetSourceAddressPrefixes
+    sourceAddressPrefixes: []
     destinationAddressPrefixes: []
   }
 }
@@ -242,13 +241,13 @@ resource ruleSshIngressDeny 'Microsoft.Network/networkSecurityGroups/securityRul
 
 
 param ruleInAllowSsh bool = false
-resource ruleSshIngressAllow 'Microsoft.Network/networkSecurityGroups/securityRules@2022-07-01' = if(ruleInAllowSsh) {
+resource ruleSshIngressAllow 'Microsoft.Network/networkSecurityGroups/securityRules@2022-09-01' = if(ruleInAllowSsh) {
   parent: nsg
   name: 'AllowSshInbound'
   properties: {
-    protocol: 'Tcp'
+    protocol: 'TCP'
     sourcePortRange: '*'
-    sourceAddressPrefix: '*'
+    sourceAddressPrefix: internetSourceIpAddress
     destinationAddressPrefix: '*'
     access: 'Allow'
     priority: 300
@@ -257,7 +256,7 @@ resource ruleSshIngressAllow 'Microsoft.Network/networkSecurityGroups/securityRu
     destinationPortRanges: [
       '22'
     ]
-    sourceAddressPrefixes: internetSourceAddressPrefixes
+    sourceAddressPrefixes: []
     destinationAddressPrefixes: []
   }
 }

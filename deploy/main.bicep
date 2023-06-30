@@ -3,13 +3,26 @@
 @description('Used to name all resources')
 param resourceName string
 
+param vmName string = 'vm-${resourceName}-${toLower(deployingUserName)}'
+
 param location string = resourceGroup().location
+
 param deployingUserPrincipalId string
 
+@description('Used to name the Virtual Machine, and denote exclusivity. For users that need multiple VMs in the same environment, vary this parameter accordingly')
+param deployingUserName string
+
 @allowed([
-  'publicIpOnVm'
+  'PublicIpOnVm'
+  'Bastion' //Awaiting resolution on https://github.com/microsoft/vscode-remote-release/issues/7179
+  'PointToSiteVpnWithDns'
+  'PointToSiteVpnWithoutDns'
+  'LandingZone'
 ])
-param exposureModel string = 'publicIpOnVm'
+param exposureModel string = 'PublicIpOnVm'
+
+@allowed(['dnsResolver', 'aci', 'none'])
+param p2sDns string = 'none'
 
 @description('When exposureModel is publicIpOnVm, this is the IP address that will be allowed to SSH to the VM. If not specified, any IP address will be allowed which is not good practice.')
 param clientOutboundIpAddress string = ''
@@ -56,14 +69,18 @@ module vm '../modules/vm.bicep' = {
   name: '${deployment().name}-vm'
   params: {
     resourceName: resourceName
+    vmName: vmName
     location: location
-    exposeVmToPublicInternet: exposureModel=='publicIpOnVm'
+    publicIpAddress: exposureModel=='PublicIpOnVm'
     sshkey: kvRef.getSecret(kvSshSecret.outputs.publicKeySecretName)
     subnetId: vnet.outputs.backendSubnetId
+    tags: {
+      'created-by': deployingUserName
+    }
   }
 }
 
-module nsg '../modules/nsg.bicep' = if(exposureModel=='publicIpOnVm') {
+module nsg '../modules/nsg.bicep' = if(exposureModel=='PublicIpOnVm') {
   name: '${deployment().name}-nsg'
   params: {
     resourceName: resourceName
@@ -75,3 +92,5 @@ module nsg '../modules/nsg.bicep' = if(exposureModel=='publicIpOnVm') {
 }
 
 output keyVaultName string = keyvault.outputs.keyVaultName
+output publicIpDnsFqdn string = vm.outputs.publicIpDnsFqdn
+output vmName string = vm.outputs.name

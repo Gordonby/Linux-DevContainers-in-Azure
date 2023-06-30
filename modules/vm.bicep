@@ -3,6 +3,10 @@
 @description('Used to name all resources')
 param resourceName string
 
+param vmName string = 'vm-${resourceName}'
+
+param vmPublicDnsName string = '${resourceName}${uniqueString(resourceName, resourceGroup().id, deployment().name)}'
+
 @allowed([
   'Standard_B1ms' //A very basic VM for light dev work and low hourly compute cost
   'Standard_D4s_v3' //A more powerful VM that supports nested virtualisation but has a higher hourly compute cost
@@ -15,13 +19,12 @@ param subnetId string
 
 param adminUsername string = 'azureuser'
 
-param exposeVmToPublicInternet bool
-param publicDnsName string = resourceName
+param publicIpAddress bool
 
 @secure()
 param sshkey string
 
-var vmName = 'vm-${resourceName}'
+param tags object = {}
 
 var image = {
   publisher: 'Canonical'
@@ -30,20 +33,20 @@ var image = {
   version: 'latest'
 }
 
-resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2022-09-01' = if(exposeVmToPublicInternet) {
+resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2022-09-01' = if(publicIpAddress) {
   name: 'pip-${vmName}'
   location: location
+  tags: tags
   sku: {
     name: 'Standard'
   }
   properties: {
     publicIPAllocationMethod: 'Static' //ensures that when VM is stopped we don't lose the IP
     dnsSettings: {
-      domainNameLabel: publicDnsName
+      domainNameLabel: vmPublicDnsName
     }
   }
 }
-
 
 resource nic 'Microsoft.Network/networkInterfaces@2022-09-01' = {
   name: 'nic-${vmName}'
@@ -66,12 +69,9 @@ resource nic 'Microsoft.Network/networkInterfaces@2022-09-01' = {
   }
 }
 
-resource virtualMachines 'Microsoft.Compute/virtualMachines@2022-11-01' = {
+resource vm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   name: vmName
   location: location
-  tags: {
-    enabled: 'true'
-  }
   identity: {
     type: 'SystemAssigned'
   }
@@ -130,4 +130,5 @@ resource virtualMachines 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   }
 }
 
-output dnsFqdn string = publicIPAddress.properties.dnsSettings.fqdn
+output publicIpDnsFqdn string = publicIpAddress ? publicIPAddress.properties.dnsSettings.fqdn : ''
+output name string = vm.name
