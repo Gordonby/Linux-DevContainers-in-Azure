@@ -130,5 +130,20 @@ resource vm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   }
 }
 
+//vm shutdown policy
+resource shutdownpolicy 'Microsoft.DevTestLab/schedules@2018-09-15' = {
+  name: 'shutdown-policy-${vmName}'
+  location: location
+  properties: {
+    status: 'Enabled'
+    taskType: 'ComputeVmShutdownTask'
+    dailyRecurrence: {
+      time: '18:00'
+    }
+    timeZoneId: 'UTC'
+    targetResourceId: vm.id
+  }
+}
+
 output publicIpDnsFqdn string = publicIpAddress ? publicIPAddress.properties.dnsSettings.fqdn : ''
 output name string = vm.name
