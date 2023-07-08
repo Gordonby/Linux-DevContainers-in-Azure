@@ -21,22 +21,22 @@ param deployingUserName string
 ])
 param exposureModel string = 'PublicIpOnVm'
 
-@allowed(['dnsResolver', 'aci', 'none'])
-param p2sDns string = 'none'
+//@allowed(['dnsResolver', 'aci', 'none'])
+//param p2sDns string = 'none'
 
 @description('When exposureModel is publicIpOnVm, this is the IP address that will be allowed to SSH to the VM. If not specified, any IP address will be allowed which is not good practice.')
 param clientOutboundIpAddress string = ''
 
-module vnet '../modules/vnet.bicep' = {
+module vnet './vnet.bicep' = {
   name: '${deployment().name}-vnet'
   params: {
     resourceName: resourceName
     location: location
-    customdns: []
+    nsgId: nsg.outputs.nsgId
   }
 }
 
-module keyvault '../modules/keyvaultssh/keyvault.bicep' = {
+module keyvault './keyvault.bicep' = {
   name: '${deployment().name}-keyvault'
   params: {
     resourceName: resourceName
@@ -47,7 +47,7 @@ module keyvault '../modules/keyvaultssh/keyvault.bicep' = {
   }
 }
 
-module kvSshSecret '../modules/keyvaultssh/ssh.bicep' = {
+module kvSshSecret 'br:mcr.microsoft.com/bicep/deployment-scripts/create-kv-sshkeypair:1.0.1' = {
   name: '${deployment().name}-kvsshsecret'
   params: {
     akvName: keyvault.outputs.keyVaultName
@@ -65,7 +65,7 @@ resource kvRef 'Microsoft.KeyVault/vaults@2022-11-01' existing = {
 Creates the VM - this module is not idempotent, so it will fail if the VM already exists. To update the VM, delete it first.
 eg. "Changing property 'linuxConfiguration.ssh.publicKeys' is not allowed."
 ''')
-module vm '../modules/vm.bicep' = {
+module vm './vm.bicep' = {
   name: '${deployment().name}-vm'
   params: {
     resourceName: resourceName
@@ -80,7 +80,7 @@ module vm '../modules/vm.bicep' = {
   }
 }
 
-module nsg '../modules/nsg.bicep' = if(exposureModel=='PublicIpOnVm') {
+module nsg './nsg.bicep' = if(exposureModel=='PublicIpOnVm') {
   name: '${deployment().name}-nsg'
   params: {
     resourceName: resourceName
