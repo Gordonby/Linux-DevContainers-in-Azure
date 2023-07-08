@@ -13,6 +13,13 @@ param vmPublicDnsName string = '${resourceName}${uniqueString(resourceName, reso
 ])
 param vmSize string = 'Standard_D4s_v3'
 
+@allowed([
+  'Standard_LRS'
+  'StandardSSD_LRS'
+  'Premium_LRS'
+])
+param vmDiskPerformance string = 'Premium_LRS'
+
 param location string = resourceGroup().location
 
 param subnetId string
@@ -87,7 +94,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
           createOption: 'FromImage'
           caching: 'ReadWrite'
           managedDisk: {
-           storageAccountType: 'Premium_LRS'
+           storageAccountType: vmDiskPerformance
           }
           deleteOption: 'Detach'
           diskSizeGB: 30
